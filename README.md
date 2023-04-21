@@ -4,7 +4,8 @@ Project for statistical assessment of an expression gene file with R studio
 ## Gene expression relating to macrofages immunereaction to a cardial infarction
 
 
-
+Author: Luka Stein
+Date: 21 - 4 - 2023
 
 
 ### Literatuurlijst
