@@ -1,7 +1,7 @@
 # Analysis_of_Gene_Expression
 Project for statistical assessment of an expression gene file with R studio
 
-## Gene expression relating to ...
+## Gene expression relating to macrofages immunereaction to a cardial infarction
 
 
 
