@@ -1,8 +1,8 @@
 ---
-title: "Gene expression relating to macrophages for trauma repair"
+title: "Macrophages’ gene expression at myocardial infarction"
 subtitle: "Project for statistical assessment of a gene expression file with R studio"
 author: "L T Stein"
-date: "2/14/2023"
+date: "4/21/2023"
 output: pdf_document
 toc: true
 ---
@@ -16,18 +16,49 @@ library(affy)
 library(pheatmap)
 library(PoiClaClu)
 library(ggplot2)
+library(EnhancedVolcano)
+library(VennDiagram)
+library(enrichplot)
+library(org.Mm.eg.db)
 ```
 
 \newpage
 
 # Summary
 
-Summary about this project
+The chosen article [3] compares their RNA-seq data set with that of another
+research. The genes are researched to see which experimental group
+is primarily involved in the reprogramming of macrofages behaviour towards
+a myocardial infarction.
 
+The twelve provided samples with 24365 rows of genes and gene counts per sample are stored in a .tsv file and are divided into four groups; three experimental groups and one control group. The experimental groups are factors that stimulate the immune reaction of macrofages and mark the type of macrofage.
+
+These stimulating factors are IL4, IFNg and PGE2. Groups IFNg and IL4 are
+cytokines. IFNg is used to mark and stimulate M1 macrofages, who are associated with a pro-inflammatory reaction and IL4 is used te indicate and stimulate M2 macrofages that are associated with an anti-inflammatory reaction.
+
+On the contrary group PGE2 is a prostagladin, that in this context can
+stimulate the production of particular cytokines that either stimulate
+pro-inflammatory reaction or anti-inflammatory reaction of macrofages.
+
+Furthermore the control group consists of data of untreated patients. De
+experimental data is obtained from fifty patients and the control data
+from twenty people.
+
+The goal is to find Differentially Expressed Genes (DEGs), that are
+genes with a genuine significance and expression compared to the control
+group. While analysing the RNA-seq data, thus the gene counts different
+ways of normalizing the data are performed and explored. Also distinct plot methods are discussed and executed, such as the Volcano plot, MA plot, heatmap, normal distribution and a Venn diagram.
+ 
+
+\newpage
 
 # Introduction
 
-Introduction about this project
+In this project different approaches of handling gene count data
+are performed and explained. For example different methods for normalizing
+the data and different ways of plotting that data. The main goal in this
+project is finding genes from the chosen article that are marked as influencing or stimulating macrofages' immune response to myocardial infarction and see which experimental group contains most DEGs. 
+This final step will be done using the Deseq2 library.
 
 \newpage
 
@@ -66,7 +97,6 @@ In the code block below dim() prints the dimensions of the dataset and str() the
 
 ```{r}
 structure <- str(count_data)
-cat(structure)
 ```
 ```{r}
 dimension <- dim(count_data)
@@ -92,7 +122,10 @@ In the code above case is assigned to the tested groups and control is assigned 
 
 
 \newpage
-# 2.1 Boxplot
+
+# 2. Discovering Data Sets
+
+## 2.1 Boxplot
 
 Two boxplots are made of the data using the 'boxplot()' function. Since the raw data of the first boxplot shows a range which is too wide, it doesn't offer a clear view of the data.
 In the second boxplot a log-transformation is performed on the data using the 'log2()' function, that narrows down the range.
@@ -113,7 +146,7 @@ title(ylab = "Gene counts (n)", line = 5)
 In the figure above a boxplot is performed on the raw data.
 On the x-axis lie all the samples and on the y-axis are the gene counts.
 
-
+\pagebreak
 
 ```{r fig.cap= "Boxplot of log-transformed gene expression of twelve samples"}
 color_place_holder <- rep(c("orange", "cyan", "purple"), each = 4)
@@ -132,7 +165,7 @@ On the x-axis lie all the samples and on the y-axis are the gene counts.
 
 \newpage
 
-# 2.2 Density plot
+## 2.2 Density plot
 
 The figure below is plotted using the 'plotDensity()' function from the ´affy'
 library. The legend is made with the 'legend()' function for all columns
@@ -161,7 +194,9 @@ and each sample received an individual line.
 
 \newpage
 
-# 3.1 Normalization
+# 3. Exploratory Data Analysis
+
+## 3.1 Normalization
 
 
 
@@ -178,6 +213,9 @@ mtext("Samples", line = -0.5)
 legend('topleft', names(count_data), lty=c(1:ncol(count_data)),
        col= color_place_holder, cex = 0.80)
 ```
+
+
+
 In the figure above a barplot is made of the sequencing depth for each sample.
 On the x-axis are all samples with divided into three replication groups 
 as shown with the colors orange
@@ -187,42 +225,40 @@ In the code block below a DESeqDataSet is made with the DESeqDataSetFromMatrix()
 function from the 'DESeq2' library
 
 ```{r}
-(ddsMat <- DESeqDataSetFromMatrix(countData = count_data,
+ddsMat <- DESeqDataSetFromMatrix(countData = count_data,
                                   colData = data.frame(samples = names(count_data)),
-                                  design = ~ 1))
-
+                                  design = ~ 1)
 ```
 
 The data is normalized using the *variance stabilizing transformation * method.
 In R this method takes shape in the vst() function with the *DESeqDataSetFromMatrix *
 as parameter. Later all the normalized values are extracted using the assay() function.
 
-```{r echo = FALSE, results='asis'}
+```{r echo = FALSE}
 # Normalization step
 normalized.data.dds <- vst(ddsMat) 
 # Extract values from normalized data object
 normalized.data <- assay(normalized.data.dds)
-
 # Tabelize group data
 #library(knitr)
 #kable(normalized.data[1:4,1:4])
 pander(head(normalized.data, 1))
 
 ```
-*Table 2.1: Normalized data of gene counts from .tsv file* 
+*Table 2: Normalized data of gene counts from .tsv file* 
 
-In table 2 normalized data is presented for each sample for one gene.
+In table 2 normalized count data is presented for all samples in one gene
 
 \newpage
 
-# 3.2 Distance calculation
+## 3.2 Distance calculation
 
 Distances between samples are calculated using the *dist() * function.
 The *t (transpose) * function within flips the data to a matrix format.
 After calculating all distances between samples that data format is converted
 to an actual matrix object using function *as.matrix() *.
 Finally the first row is tabelized.
-```{r}
+```{r }
 # Calculating distances between samples
 distance_data <- dist( t ( normalized.data  ))
 
@@ -236,7 +272,10 @@ pander(DistMatrix[1:3, 1:4])
 
 In table 2.2 is a matrix shown for distances between all samples for one gene.
 
-# 3.3 Sample distances using a Heatmap
+\pagebreak
+
+
+## 3.3 Sample distances using a Heatmap
 
 ```{r fig.cap= "Euclidean distances between samples per group"}
 # Get colnames for untreated an treated
@@ -251,7 +290,7 @@ Treated_genes <- factor(rep(c(0,1,2,3), 3),
                         labels = c("control", "IL4", "PGE2", "IFNg"))
 
 annotation <- data.frame(Treatment, Treated_genes)
-annotation                        
+pander(annotation)                       
 rownames(annotation) <- names(count_data)
 
 pheatmap(DistMatrix, show_colnames = FALSE,
@@ -260,12 +299,16 @@ pheatmap(DistMatrix, show_colnames = FALSE,
          clustering_distance_cols = distance_data,
          main = "Euclidean Sample Distances")
 ```
-IFNg-treated 3, IL4-treated 1
+
+
+
+The figure below shows a heatmap of the annotated data as shown in the legend. On the x and y-axis dendogram show the distances between each
+sample. For example IL4-treated_1 all at the bottom doesn't seem to be similar to its group members IL4-treated_2 and IL4-treated_3
 
 
 \newpage
 
-# 3.4 Multi-Dimensional Scaling
+## 3.4 Multi-Dimensional Scaling
 
 In the code block below several steps are performed for normalizing the raw count data
 and calculating preferable distances between the samples called the Poisson Distance.
@@ -278,6 +321,8 @@ mdsPoisData <- data.frame( cmdscale(normalized.samplePoisDistMatrix) )
 names(mdsPoisData) <- c('x_coord', 'y_coord')
 pander(mdsPoisData)
 ```
+*Table 3: X and Y coordinates of Poisson Distance.* 
+
 
 In the figure below a graph is drawn showing the Poisson Distance between
 the samples. First a factor is made *factor() * for the three replication groups
@@ -289,6 +334,7 @@ The plotting is done with *ggplot() *. The function offers a prettier
 and clearer graph and is constructed using more parameters. Such as
 the colnames from the raw data, the colors chosen arbitrarily based on the length of groups
 and the graph theme is adjusted by *theme_bw *.
+
 
 ```{r fig.cap = "MDS graph showing the Poisson distance between samples"}
 groups <- factor(paste(annotation$Treatment, annotation$Treated_genes, sep = "_"))
@@ -302,10 +348,19 @@ ggplot(mdsPoisData, aes(x_coord, y_coord, color = groups, label = coldata)) +
   labs(x = "Poisson Distance", y = "Poisson Distance") +
   theme_bw()
 ```
+
+
+
+In the figure below the samples of each group cluster. Though
+sample IL4-treated 3 deviates from this pattern. This might be
+due to large count data, that differs to much from its group samples neighbors.
+
+
 \newpage
 
+# 4. Discovering Differentialy Expressed Genes (DEGs)
 
-# 4.1 Pre-processing
+## 4.1 Pre-processing
 
 A different way of normalizing the data using the fragments per million mapped fragments (FPM)
 formula. As shown below the count data of the samples is divided by the sum of the count data
@@ -316,9 +371,9 @@ normalization.
 counts.fpm <- log2( (count_data / (colSums(count_data) / 1e6)) + 1 )
 pander(counts.fpm[1:3, 1:5])
 ```
+*Table 4.1: The log2 of the gene count data as a pre-processing step for normalization*
 
-
-# 4.1 Assignment
+## 4.1 Assignment
 
 In the code block below genes are kept if they hold a count higher than 
 five for at least six samples. If this requirement is not met, then the
@@ -331,20 +386,37 @@ the samples (6) must meet the requirements.
 # and n_samples for amount of samples that satisfy the threshold
 normalize_data <- function(count_data, min_count, n_samples){
   keep <- rowSums(count_data >= min_count) >= n_samples
-  kept_counts <- nrow(dds[keep,])
+  kept_counts <- count_data[keep,]
   return(kept_counts)
 }
 
-filtered_data <- normalize_data(count_data, 5, 6)
-
+kept_counts <- normalize_data(count_data, 5, 6)
+filtered_data <- nrow(kept_counts)
 original_gene_count <- nrow(count_data)
 difference_filtered_count <- filtered_data - original_gene_count
 cat("After the filtering step with minimum count 5 for at least 6 samples the new
 filtered count is substracted from the original count:", original_gene_count, "-",
 filtered_data, "=", difference_filtered_count, "genes")
 ```
+In the graph below a density plot is made with the same method as the density plot
+in figure three. Though a filtered dataset is passed from the function above.
 
-# 4.2 Fold Change
+```{r fig.cap = "Density plot of gene expression data using count threshold and log-transformation"}
+plotDensity(log2(kept_counts + 0.1), col = groups,
+            main = "Density plot of gene expression data using log-transformation",
+            xlab = "log2(count_data)")
+legend('topright', names(kept_counts), lty=c(1:ncol(kept_counts)),
+       col= groups, cex = 0.95)
+abline(v=-1.5, lwd=1, col='red', lty=2)
+```
+
+
+
+In the density plot above it becomes clear that genes have been removed from
+the y-axis that displays the density, as the y-max-value went from 0.15 to 
+0.12. Also a large amount of the non expressive genes seems to be filtered as well.
+
+## 4.2 Fold Change
 
 In the code block below the means are calculated for two groups 
 (experiment and control) per gene using the *rowMeans() * function.
@@ -360,29 +432,34 @@ low fold-change values in between the borders and vice versa.
 counts.fpm$experiment_1_avg <- rowMeans(counts.fpm[case2])
 counts.fpm$control_avg <- rowMeans(counts.fpm[control])
 LFC_column <- counts.fpm$experiment_1_avg - counts.fpm$control_avg
-hist(LFC_column, breaks = 40, main = "Log fold change of group PGE2-treated")
+hist(LFC_column, breaks = 40, main = "Log fold change of group PGE2-treated",
+     col = "orange")
 abline(v = c(-1 ,1), lt = 2,  lwd = 2, col = "red")
 ```
+
+
 
 In the figure 1.8 above a histogram is made of the log fold change values
 between two groups. A clear normal deviation is visible.
 
 
-# 4.3 Using Bioconductor Packages
+## 4.3 Using Bioconductor Packages
 
 In the research's article it's mentioned that the t-test and chi-test are
 used for calculating the p-values.
 
-# 4.3.1 The Design (matrix)
+### 4.3.1 The Design (matrix)
 
-Here a matrix model is formed that can be used as the design in the ddsmatrix.
+Here a model matrix is formed that can be used as the design in the ddsmatrix.
 
 ```{r}
-Treated_genes
 design.matrix <- model.matrix(~ Treated_genes, data=annotation)
-design.matrix
+pander(design.matrix)
 ```
-# 4.3.2 DESeq2
+
+*Table 4.2: A model matrix with all experiment groups against intercept (control)*
+
+### 4.3.2 DESeq2
 
 
 Below a new ddsMat is set up with as main difference passing an factor
@@ -395,51 +472,296 @@ Finally these names can be passed to the 'results()' and the summary of each
 result object shows the amount of up or down regulated genes for that group,
 also an adjusted p-value, outliers, low counts and a mean count.
 
-```{r}
-(ddsMat <- DESeqDataSetFromMatrix(countData = count_data,
+```{r, echo = FALSE}
+ddsMat <- DESeqDataSetFromMatrix(countData = count_data,
                                   colData = annotation,
-                                  design = design.matrix))
-
+                                  design = design.matrix)
 dds <- DESeq(ddsMat)
 resultsNames(dds) # lists the names of individual effects
-untreated_lfc <- summary(results(dds, name="Intercept"))
-Treated_genesIL4_lfc <- summary(results(dds, name="Treated_genesIL4"))
-Treated_genesPGE2_lfc <- summary(results(dds, name="Treated_genesPGE2"))
-Treated_genesIFNg_lfc <- summary(results(dds, name="Treated_genesIFNg"))
+untreated_lfc <- results(dds, name="Intercept")
+Treated_genesIL4_lfc <- results(dds, name="Treated_genesIL4")
+Treated_genesPGE2_lfc <- results(dds, name="Treated_genesPGE2")
+Treated_genesIFNg_lfc <- results(dds, name="Treated_genesIFNg")
 ```
 
 A way for removing noise of log2 fold change data of low count genes is by
-getting the results from the 'lfcShrink()' instead of the 'results()' function.
+getting the results from the *lfcShrink() * instead of the 'results()' function.
 
 It's beneficial to do this since when plotting so that the log fold changes stand out.
 
-```{r}
+```{r, comment= FALSE}
 Treated_genesIL4_shrink <- lfcShrink(dds, coef="Treated_genesIL4", type="apeglm")
 Treated_genesPGE2_shrink <- lfcShrink(dds, coef="Treated_genesPGE2", type="apeglm")
 Treated_genesIFNg_shrink <- lfcShrink(dds, coef="Treated_genesIFNg", type="apeglm")
 ```
 
 
+Below three MA plots are made with the 'plotMA()' function. The results
+per group from 'lfcShrink()' are passed to each plot. With ylim a broader
+or more narrow plot can be graphed. In case of these plots the ylimits are 
+more stretched out to include more expression values into view.
 
-
-```{r fig.cap = c("Log fold change of group PGE2-treated", "Log fold change of group PGE2-treated", "Log fold change of group PGE2-treated")}
+```{r fig.cap = c("Log fold change of group PGE2-treated with shrinked low-count values", "Log fold change of group PGE2-treated  with shrinked low-count values", "Log fold change of group PGE2-treated with shrinked low-count values")}
 par(mfrow = c(1,3))
-plotMA(Treated_genesIL4_shrink, main = "Log2 fold change of IL4 with shrinkage")
-plotMA(Treated_genesPGE2_shrink, main = "Log2 fold change of PGE2 with shrinkage")
-plotMA(Treated_genesIFNg_shrink, ylim=c(-6,6), main = "Log2 fold change of IFNg with shrinkage")
+plotMA(Treated_genesIL4_shrink, ylim=c(-5,10), main = "Log2 fold change of IL4")
+plotMA(Treated_genesPGE2_shrink, ylim=c(-5,8), main = "Log2 fold change of PGE2")
+plotMA(Treated_genesIFNg_shrink, ylim=c(-5,10), main = "Log2 fold change of IFNg")
 ```
+
+
+In the MA plots above are the log2 fold changes shown per treatment as the blue
+dots, instead the grey dots are noise.
+
+On the y-axis the log fold change and on the x-axis the mean of the
+normalized counts. The further the points stray from the 0-axis the more they are
+expressed. 
+
+Genes (blue dots) are up regulated when above the 0-axis and down regulated
+when below.
+
+In all plots most genes have a low up and down regulation and a few genes
+that are strongly up or down regulated.
 
 \newpage
 
 # 5. Data analysis and visualisation
 
-# 5.1 Volcano Plot
+## 5.1 Volcano Plot
+
+Below the function deseq.volcano receives shrunken datasets (exl. noise) and
+a parameter for the name of the group. 
+
+A dataset is passed to the *EnhancedVolcano() * function that is responsible
+for making the volcano plot.
+
+Two important parameters are pCutoff and FCcutoff, since these can be set
+to the thresholds of the article in order to see comparable results. 
+
+Here p < 0.001 and the log2 fold change > 0.15.
+
+Because of the strict thresholds lots of non expressive data is filtered out.
+Also it seems no genes suffice to the p-threshold of below 0.001 accompanying with
+a log2 fold change below its threshold. Though be aware these will appear
+as blue when a higher p-value e.g. 0.05 is set.
+
+```{r, echo = FALSE}
+deseq.volcano <- function(res, datasetName) {
+  return(EnhancedVolcano(res, x = 'log2FoldChange', y = 'padj',
+                         lab=rownames(res),
+                         title = paste(datasetName),
+                         subtitle = bquote(italic('FDR <= 0.001 and absolute FC >= 0.15')),
+                         # Change text and icon sizes
+                         labSize = 3, pointSize = 1.5, axisLabSize=10, titleLabSize=12,
+                         subtitleLabSize=8, captionLabSize=10,
+                         legendIconSize = 6,
+                         legendLabSize = 6,
+                         legendPosition = "top",
+                         # Set cutoffs
+                         pCutoff = 0.05, FCcutoff = 2)) 
+}
+```
+
+In the three figures below are on the y-axis the p-values, they indicate significance.
+On the x-axis log2 fold change is displayed, which indicates expressiveness
+from low < 0 (no expression) > high.
+
+```{r fig.cap = "Volcano plot of group IL4"}
+deseq.volcano(res= Treated_genesIL4_shrink, datasetName = "IL4 ~ untreated")
+```
+
+
+In the figure above of IL4 against untreated, more genes seem to be up regulated
+(on the right side) indicated as red dots.
+
+Also the green dots show a higher log2 FC on the right. Though to be mentioned
+green dots don't meet the p-value threshold, thus are not changing significantly.
+
+```{r fig.cap = "Volcano plot of group PGE2"}
+deseq.volcano(res= Treated_genesPGE2_shrink, datasetName = "PGE2 ~ untreated")
+```
+
+
+In the figure above of PGE2 against untreated, less genes come to expression
+and the number of up and down regulated genes seem relatively equal.
+
+Opposed to the previous plot of IL4 there's a larger variety in p-values
+and log2 FC in the green area.
+
+
+```{r fig.cap = "Volcano plot of group IFNg"}
+deseq.volcano(res= Treated_genesIFNg_shrink, datasetName = "IFNg ~ untreated")
+```
+
+
+In the figure above of IFNg against untreated something really interesting is happening.
+
+Way more genes come to expression with a larger quantity that are up regulated
+(red dots on rights side)
+
+Also the p-values of the green dots show less variety, thus indicating
+for those genes a comparable significance. In addition the log2 FC values act more
+consistent.
+
+\newpage
+
+## 5.2 Venn Diagram
+
+
+In the chunk below all DEGs are extracted from the shrunk experiment groups' data at a p-value below 0.05. 
+
+```{r}
+## Data preparation
+pval_threshold <- 0.05
+IFNg.degs <- row.names(Treated_genesIFNg_shrink[which(Treated_genesIFNg_shrink$padj<= pval_threshold), ])
+IL4.degs <- row.names(Treated_genesIL4_shrink[which(Treated_genesIL4_shrink$padj <= pval_threshold), ])
+PGE2.degs <- row.names(Treated_genesPGE2_shrink[which(Treated_genesPGE2_shrink$padj <= pval_threshold), ])
+```
+
+Using the function *draw.triple.venn() * from the *VennDiagram * library,
+a Venn diagram is drawn.
+
+The Venn diagram function takes the intersect of all experiment groups
+in duo's and one intersect between all experiment groups by intersecting one group with an intersection of a duo.
+
+```{r fig.cap = "Venn diagram showing overlap between DEGs"}
+ins.1 <- length( intersect(IFNg.degs, IL4.degs) )
+ins.2 <- length( intersect(IFNg.degs, PGE2.degs) )
+ins.3 <- length( intersect(IL4.degs, PGE2.degs) )
+triple.ins <- length( intersect(intersect(IL4.degs, PGE2.degs), IFNg.degs)  )
+venn.plot <- draw.triple.venn(length(IFNg.degs),
+                              length(IL4.degs),
+                              length(PGE2.degs),
+                              # Calculate the intersections of two sets
+                                ins.1,
+                                ins.2,
+                                ins.3,
+                                triple.ins, 
+                                category = c("IFNg.degs", "IL4.degs",
+                                             "PGE2.degs"), scaled = F,
+                                fill = c("red", "green", "cyan"), alpha = rep(0.5, 3),
+                                cat.pos = c(0, 0, 180))
+```
+
+
+
+\newpage
+
+## 5.3 Looking for DEGs from the article
+
+Most DEGs found are annotated in the following way *ENSG00000159348 *,
+this is an ENSEMBLE variant id. When comparing with other genes, it's preferred to have that same format. Though in the resulting DEGs, genes
+with id's such as *ENSG00000159348.2 * exist. The .2 means a variant of the ENSEMBLE id.
+
+Since the DEGS are annotated in this manner, all .etc must be removed.
+The function *tools::file_path_sans_ext * removes file extensions and is 
+preferred in this case. Since this is an easy way to tackle the problem and instantly receive the wanted output without indexing on an object.
+
+Using *sapply * every line of the DEG variables' data is passed
+to the function.
+Finally just to be sure of the correct data type, the data is made type *character * with the *as.character() * function
+
+
+In the code chunk below all DEGs ensemble gene id's are extracted
+per group and written away, for future analysis like e.g. 
+looking for biological processes the DEGs are correlated to.
+
+```{r}
+IFNg.degs.symbol <- as.character(sapply(IFNg.degs, tools::file_path_sans_ext))
+IL4.degs.symbol <- as.character(sapply(IL4.degs, tools::file_path_sans_ext))
+PGE2.degs.symbol <- as.character(sapply(PGE2.degs, tools::file_path_sans_ext))
+write.table(IFNg.degs.symbol, file = "data/IFNg-deseq-deg-names.txt",
+            row.names = FALSE, quote = FALSE, col.names = FALSE)
+write.table(IL4.degs.symbol, file = "data/IL4-deseq-deg-names.txt",
+            row.names = FALSE, quote = FALSE, col.names = FALSE)
+write.table(PGE2.degs.symbol, file = "data/PGE2-deseq-deg-names.txt",
+            row.names = FALSE, quote = FALSE, col.names = FALSE)
+```
+
+
+Next the gene symbol list of *Table 2 * from the article [3] is read
+so they can be compared with the DEGs per experiment group. Though those
+gene symbols have first been converted to ensemble gene id's using the
+webtool from SynGO [4].
+
+Also the function *check_degs_contain_targets() * has been written for comparing DEGs between two data sets containing gene ensemble id's. The algorithm iterates over the size of parameter y and if that item is found
+in parameter x, a flag is raised of TRUE and the index of that item will be catted.
+
+```{r}
+target_genes <- read.table("/homes/ltstein/Kwartaal_7/Thema_opdracht/Opdrachten/data/target_genes_article.txt")
+check_degs_contain_targets <- function(x, y) {
+  size <- length(y)
+  for (i in 1:size){
+      if(x[i,] %in% y){
+          flag <- TRUE
+          cat(i, flag)
+      } 
+  }
+}
+```
+
+In total three genes from the article are found as is shown below
+
+```{r}
+cat("Experiment group IFNg\n")
+
+check_degs_contain_targets(target_genes, IFNg.degs.symbol)
+
+# Using square brackets indexing and a vector multiple indices can be
+# passed to receive several gene id's at a time. An example below:
+
+target_genes$V1[c(5, 35)]
+
+cat("\nExperiment group PGE2\n")
+
+check_degs_contain_targets(target_genes, PGE2.degs.symbol)
+
+target_genes$V1[c(32)]
+
+cat("\nExperiment group IL4\n")
+
+check_degs_contain_targets(target_genes, IL4.degs.symbol)
+
+cat("No corresponding DEGs found\n")
+```
+
+The last step is converting these gene id's back to gene symbols. Again
+the webtool SynGO [4] is used for this. For group IFNg the two genes are called CYB5R1 en ADAM12 and group PGE2 contains gene ANKS6. For a final check are the gene symbol searched for within *Table 2 * from the article [3] and are indeed present.
+
+
+\newpage
+
+#  Conclusion and discussion
+
+All things considered in total 1963 significant DEGs were found with
+a core overlap of 18 genes as shown in the Venn diagram. Furthermore within experiment group IFNg two genes were found that overlapped with the genes from the article, in experiment group PGE2 one gene was found and group IL4 had none to be found. 
+
+Thus after normalization from the total
+of 24365 genes with thresholds of a p-value < 0.05 and FC >= 2 24365 minus 1963 equals to 22.402 genes have not passed as differentially expressed genes.
+
+Also per experiment group the following amount of DEGs were determined PGE2 (n=948), INFg (n=681) and IL4 (n=334). This means that experimental group Prostaglandin E2 (PGE2) expressed the most DEGs.
+
+
+Unfortunately since the original article had combined its RNA-seq data with another micro-array data set, the reproducibility was disappointing.
+The original plan of approach was to obtain similar plots by using the corresponding parameters from the article, however now that intention has
+changed. In the future a more disciplined start of researching is therefore sought.
 
 
 \newpage
 # Bibliography
 
- 1. GEO Browser. Geraadpleegd op 14-02-2023. De link: https://www.ncbi.nlm.nih.gov/geo/browse/.
+ 1. Fontaine, M. A. C., Jin, H., Gagliardi, M., Rousch, M., Wijnands, E., Stoll,
+ M., Li, X., Schurgers, L., Reutelingsperger, C., Schalkwijk, C., van den Akker,
+ N. M. S., Molin, D. G. M., Gullestad, L., Eritsland, J., Hoffman, P., Skjelland,
+ M., Andersen, G. Ø., Aukrust, P., Karel, J., … Biessen, E. A. (2022). 
+ Blood Milieu in Acute Myocardial Infarction Reprograms Human Macrophages for Trauma Repair.
+ Accessed at 18-04-2023. The link: https://doi.org/10.1002/advs.202203053
+  
 
- 2. Geo Browser. Blood milieu in acute myocardial infarction reprograms human macrophages for trauma repair. Geraadpleegd op 14-02-2023. 
+ 2. GEO Browser. Accessed at 14-02-2023. The link: https://www.ncbi.nlm.nih.gov/geo/browse/.
+
+ 3. Geo Browser. Blood milieu in acute myocardial infarction reprograms human macrophages for trauma repair. Accessed at 14-02-2023. 
  De link: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE215801
+ 
+ 4. SYNGO. SYNGO - ID conversion tool. Accessed at 20-03-2023. The link:
+ https://www.syngoportal.org/convert
+ 
