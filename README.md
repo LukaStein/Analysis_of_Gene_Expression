@@ -9,7 +9,7 @@ Author: Luka Stein
 Date: 21 - 4 - 2023
 
 
-### Literatuurlijst
+### Bibliography
 
  * GEO Browser. Geraadpleegd op 14-02-2023. De link: https://www.ncbi.nlm.nih.gov/geo/browse/.
 
